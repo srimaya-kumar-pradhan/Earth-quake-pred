@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuakeAI — Earthquake Intelligence Platform</title>
+    <meta name="description" content="Production-grade earthquake magnitude prediction and analytics dashboard powered by XGBoost ML">
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <nav class="topbar" id="topbar">
+        <div class="topbar-left">
+            <div class="logo-mark">Q</div>
+            <span class="logo-text">Quake<span class="accent">AI</span></span>
+        </div>
+        <div class="topbar-tabs">
+            <button class="tab-btn active" data-tab="dashboard" id="tab-dashboard">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                Dashboard
+            </button>
+            <button class="tab-btn" data-tab="map" id="tab-map">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/></svg>
+                Map
+            </button>
+            <button class="tab-btn" data-tab="predict" id="tab-predict">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                Predict
+            </button>
+            <button class="tab-btn" data-tab="analytics" id="tab-analytics">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+                Analytics
+            </button>
+        </div>
+        <div class="topbar-right">
+            <div class="status-pill" id="status-pill">
+                <span class="status-dot"></span>
+                <span id="status-text">Connecting...</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="content">
+
+        <!-- ─── DASHBOARD TAB ─── -->
+        <section class="tab-panel active" id="panel-dashboard">
+            <!-- Metric Cards Row -->
+            <div class="metric-row" id="metric-row">
+                <div class="metric-card">
+                    <span class="metric-label">Total Quakes</span>
+                    <span class="metric-value" id="m-total">—</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Avg Magnitude</span>
+                    <span class="metric-value" id="m-avg-mag">—</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Max Magnitude</span>
+                    <span class="metric-value accent" id="m-max-mag">—</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Model R²</span>
+                    <span class="metric-value green" id="m-r2">—</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Model RMSE</span>
+                    <span class="metric-value" id="m-rmse">—</span>
+                </div>
+            </div>
+
+            <!-- Charts Grid -->
+            <div class="charts-grid">
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h3>Region Distribution</h3>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="regionBarChart"></canvas>
+                    </div>
+                </div>
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h3>Magnitude by Region</h3>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="regionMagChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Region Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h3>Region Summary</h3>
+                </div>
+                <div class="card-body table-wrap">
+                    <table class="data-table" id="region-table">
+                        <thead>
+                            <tr>
+                                <th>Region</th>
+                                <th>Count</th>
+                                <th>Avg Mag</th>
+                                <th>Max Mag</th>
+                                <th>Avg Depth</th>
+                            </tr>
+                        </thead>
+                        <tbody id="region-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ─── MAP TAB ─── -->
+        <section class="tab-panel" id="panel-map">
+            <div class="map-controls">
+                <select id="map-region-filter" class="select-input">
+                    <option value="">All Regions</option>
+                </select>
+                <span class="map-legend">
+                    <span class="legend-dot" style="background:#22c55e"></span> &lt;3
+                    <span class="legend-dot" style="background:#3b82f6"></span> 3–4
+                    <span class="legend-dot" style="background:#f59e0b"></span> 4–5
+                    <span class="legend-dot" style="background:#ef4444"></span> &gt;5
+                </span>
+            </div>
+            <div id="map" class="map-view"></div>
+        </section>
+
+        <!-- ─── PREDICT TAB ─── -->
+        <section class="tab-panel" id="panel-predict">
+            <div class="predict-layout">
+                <div class="card predict-card">
+                    <div class="card-header">
+                        <h3>Magnitude Prediction</h3>
+                        <span class="badge">XGBoost</span>
+                    </div>
+                    <div class="card-body">
+                        <form id="predict-form">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="p-region">Region</label>
+                                    <select id="p-region" class="select-input" required>
+                                        <option value="">Select Region</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="p-depth">Depth (km)</label>
+                                    <input type="number" id="p-depth" class="text-input" step="0.1" placeholder="e.g. 10" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="p-year">Year</label>
+                                    <input type="number" id="p-year" class="text-input" value="2024" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="p-month">Month</label>
+                                    <input type="number" id="p-month" class="text-input" min="1" max="12" placeholder="1–12" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="p-day">Day</label>
+                                    <input type="number" id="p-day" class="text-input" min="1" max="31" placeholder="1–31" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="p-hour">Hour</label>
+                                    <input type="number" id="p-hour" class="text-input" min="0" max="23" placeholder="0–23" required>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn-primary" id="predict-btn">
+                                <span class="btn-text">Run Prediction</span>
+                                <span class="spinner hidden" id="predict-spinner"></span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                <div class="card result-card" id="result-card">
+                    <div class="result-inner">
+                        <span class="result-label">Predicted Magnitude</span>
+                        <span class="result-value" id="result-magnitude">—</span>
+                        <span class="result-region" id="result-region"></span>
+                        <span class="result-confidence" id="result-confidence"></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ─── ANALYTICS TAB ─── -->
+        <section class="tab-panel" id="panel-analytics">
+            <div class="card chart-card-wide">
+                <div class="card-header">
+                    <h3>Earthquake Frequency Over Time</h3>
+                </div>
+                <div class="card-body">
+                    <canvas id="timeSeriesChart"></canvas>
+                </div>
+            </div>
+            <div class="charts-grid">
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h3>Depth vs Magnitude</h3>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="scatterChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Anomalous Events (Z &gt; 2)</h3>
+                    </div>
+                    <div class="card-body table-wrap">
+                        <table class="data-table" id="anomaly-table">
+                            <thead>
+                                <tr>
+                                    <th>Region</th>
+                                    <th>Mag</th>
+                                    <th>Depth</th>
+                                    <th>Z-Score</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="anomaly-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <span>Loading QuakeAI...</span>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

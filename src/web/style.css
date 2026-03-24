@@ -1,0 +1,639 @@
+/* ═══════════════════════════════════════════════════════════
+   QuakeAI — LeetCode-Inspired Dark Mode Design System
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+    /* Core palette */
+    --bg-0: #0a0a0a;
+    --bg-1: #111111;
+    --bg-2: #1a1a1a;
+    --bg-3: #222222;
+    --bg-hover: #2a2a2a;
+    --border: #2d2d2d;
+    --border-light: #333333;
+
+    /* Text */
+    --text-0: #efefef;
+    --text-1: #b3b3b3;
+    --text-2: #737373;
+
+    /* Accents */
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --green: #22c55e;
+    --green-dim: rgba(34, 197, 94, 0.15);
+    --orange: #f59e0b;
+    --orange-dim: rgba(245, 158, 11, 0.15);
+    --red: #ef4444;
+    --red-dim: rgba(239, 68, 68, 0.15);
+
+    /* Sizing */
+    --topbar-h: 52px;
+    --radius: 8px;
+    --radius-lg: 12px;
+}
+
+/* ─── Reset ─── */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 14px;
+}
+
+body {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: var(--bg-0);
+    color: var(--text-0);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+}
+
+/* ─── Top Navigation Bar ─── */
+.topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--topbar-h);
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 100;
+}
+
+.topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logo-mark {
+    width: 28px;
+    height: 28px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 15px;
+    color: white;
+}
+
+.logo-text {
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: -0.3px;
+}
+
+.accent {
+    color: var(--accent);
+}
+
+.topbar-tabs {
+    display: flex;
+    gap: 4px;
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-2);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+
+.tab-btn:hover {
+    color: var(--text-1);
+    background: var(--bg-hover);
+}
+
+.tab-btn.active {
+    color: var(--text-0);
+    background: var(--bg-3);
+}
+
+.tab-btn svg {
+    opacity: 0.7;
+}
+
+.tab-btn.active svg {
+    opacity: 1;
+}
+
+.topbar-right {
+    display: flex;
+    align-items: center;
+}
+
+.status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-2);
+    padding: 4px 10px;
+    background: var(--bg-2);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+}
+
+.status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--orange);
+    animation: pulse 2s infinite;
+}
+
+.status-dot.online {
+    background: var(--green);
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+/* ─── Main Content ─── */
+.content {
+    margin-top: var(--topbar-h);
+    padding: 20px;
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ─── Tab Panels ─── */
+.tab-panel {
+    display: none;
+    animation: fadeUp 0.3s ease;
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Metric Cards Row ─── */
+.metric-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.metric-card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.metric-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-2);
+    font-weight: 600;
+}
+
+.metric-value {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+.metric-value.green {
+    color: var(--green);
+}
+
+.metric-value.accent {
+    color: var(--red);
+}
+
+/* ─── Cards ─── */
+.card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: 16px;
+    overflow: hidden;
+}
+
+.card-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.card-header h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.badge {
+    background: var(--green-dim);
+    color: var(--green);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.card-body {
+    padding: 18px;
+}
+
+/* ─── Charts Grid ─── */
+.charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.chart-card .card-body {
+    height: 320px;
+    position: relative;
+}
+
+.chart-card-wide {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: 16px;
+    overflow: hidden;
+}
+
+.chart-card-wide .card-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+}
+
+.chart-card-wide .card-header h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.chart-card-wide .card-body {
+    padding: 18px;
+    height: 350px;
+    position: relative;
+}
+
+/* ─── Data Table ─── */
+.table-wrap {
+    overflow-x: auto;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.data-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.data-table th {
+    background: var(--bg-2);
+    color: var(--text-2);
+    text-transform: uppercase;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.data-table td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-1);
+}
+
+.data-table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+/* ─── Map ─── */
+.map-view {
+    height: calc(100vh - var(--topbar-h) - 100px);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.map-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.map-legend {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-2);
+    margin-left: auto;
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+/* ─── Form Inputs (LeetCode style) ─── */
+.select-input,
+.text-input {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    color: var(--text-0);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 9px 12px;
+    border-radius: 6px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+}
+
+.select-input:focus,
+.text-input:focus {
+    border-color: var(--accent);
+}
+
+/* ─── Predict Layout ─── */
+.predict-layout {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 20px;
+    align-items: start;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-2);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.btn-primary {
+    width: 100%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.btn-primary:hover {
+    background: var(--accent-hover);
+}
+
+.btn-primary:active {
+    transform: scale(0.98);
+}
+
+/* ─── Result Card ─── */
+.result-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 320px;
+}
+
+.result-inner {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.result-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-2);
+    font-weight: 600;
+}
+
+.result-value {
+    font-size: 64px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    color: var(--text-2);
+    line-height: 1;
+    transition: color 0.3s;
+}
+
+.result-value.low { color: var(--green); }
+.result-value.mid { color: var(--orange); }
+.result-value.high { color: var(--red); }
+
+.result-region {
+    font-size: 13px;
+    color: var(--text-2);
+    margin-top: 4px;
+}
+
+.result-confidence {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.result-confidence.high {
+    background: var(--green-dim);
+    color: var(--green);
+}
+
+.result-confidence.moderate {
+    background: var(--orange-dim);
+    color: var(--orange);
+}
+
+/* ─── Spinner ─── */
+.spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+.hidden { display: none !important; }
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ─── Loading Overlay ─── */
+.loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-0);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 999;
+    transition: opacity 0.4s ease;
+    font-size: 13px;
+    color: var(--text-2);
+}
+
+.loading-overlay.fade-out {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+/* ─── Leaflet dark overrides ─── */
+.leaflet-container {
+    background: var(--bg-0) !important;
+}
+
+.leaflet-popup-content-wrapper {
+    background: var(--bg-2) !important;
+    color: var(--text-0) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 12px !important;
+}
+
+.leaflet-popup-tip {
+    background: var(--bg-2) !important;
+}
+
+.leaflet-control-zoom a {
+    background: var(--bg-2) !important;
+    color: var(--text-0) !important;
+    border-color: var(--border) !important;
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-0);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-light);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-2);
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 900px) {
+    .metric-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+    .predict-layout {
+        grid-template-columns: 1fr;
+    }
+    .topbar-tabs {
+        gap: 0;
+    }
+    .tab-btn span:not(.tab-btn svg) {
+        display: none;
+    }
+}
+
+@media (max-width: 600px) {
+    .metric-row {
+        grid-template-columns: 1fr;
+    }
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+}

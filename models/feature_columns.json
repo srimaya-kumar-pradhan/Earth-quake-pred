@@ -1,0 +1,18 @@
+[
+  "latitude",
+  "longitude",
+  "depth",
+  "year",
+  "month",
+  "day",
+  "hour",
+  "dayofweek",
+  "mag_roll_7",
+  "mag_roll_30",
+  "depth_roll_7",
+  "time_since_last",
+  "energy_release",
+  "region_eq_count",
+  "region_avg_mag",
+  "region"
+]
