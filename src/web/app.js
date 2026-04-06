@@ -5,7 +5,20 @@
  * Leaflet map, prediction form, and analytics.
  */
 
-const API = "http://127.0.0.1:5000";
+// ─── API Base URL (environment-aware) ────────────────────────
+// Mode A — Production / Docker: frontend served by Flask on same origin
+//          → use relative paths (no CORS needed)
+// Mode B — Development: Live Server (port 5500), file:// protocol, etc.
+//          → point explicitly at Flask backend on port 5000
+const API = (() => {
+    const { protocol, hostname, port } = window.location;
+    // file:// → opened HTML directly
+    if (protocol === "file:") return "http://127.0.0.1:5000";
+    // Same port as backend (Flask serves frontend) → relative
+    if (port === "5000" || port === "") return "";
+    // Any other port (e.g. Live Server 5500) → cross-origin to backend
+    return `http://${hostname}:5000`;
+})();
 
 // ─── Chart.js Global Defaults ────────────────────────────────
 Chart.defaults.color = "#737373";
