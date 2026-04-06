@@ -39,10 +39,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 
 # Run with Gunicorn (production WSGI server)
 # Workers = 2 * CPU + 1 is standard; use 2 for container environments
-CMD gunicorn \
-    --bind 0.0.0.0:${PORT} \
-    --workers 2 \
-    --timeout 120 \
-    --access-logfile - \
-    --error-logfile - \
-    "src.api.app:app"
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --access-logfile - --error-logfile - src.api.app:app"]
