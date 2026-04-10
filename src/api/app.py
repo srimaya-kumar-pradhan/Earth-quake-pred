@@ -146,11 +146,12 @@ def index():
 
 @app.route("/<path:filename>")
 def static_files(filename):
-    """Serve static assets (CSS, JS, etc.) — only for files that exist."""
+    """Serve static assets (CSS, JS, etc.) — only for files that exist in web/."""
     filepath = os.path.join(WEB_DIR, filename)
     if os.path.isfile(filepath):
         return send_from_directory(WEB_DIR, filename)
-    # Not a static file → let Flask handle as 404 (or match another route)
+    # Not a static file → 404
+    logger.debug(f"Static file not found: {filename}")
     return jsonify({"error": "Not found"}), 404
 
 
