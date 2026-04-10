@@ -1,5 +1,5 @@
 # ─── Dockerfile — Earthquake ML System ───────────────────────
-# Multi-stage optimized build using slim Python base
+# Production-ready build using slim Python base
 # Compatible with Render, Railway, and any Docker host
 
 FROM python:3.11-slim
@@ -25,10 +25,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy only necessary project files
-COPY src/ ./src/
-COPY models/ ./models/
-COPY data/processed/ ./data/processed/
+# Copy entire project (dockerignore handles exclusions)
+COPY . .
 
 # Expose port
 EXPOSE 5000
@@ -38,5 +36,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')" || exit 1
 
 # Run with Gunicorn (production WSGI server)
-# Workers = 2 * CPU + 1 is standard; use 2 for container environments
+# Workers = 2 for container environments; timeout 120s for model loading
 CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --access-logfile - --error-logfile - src.api.app:app"]
