@@ -31,11 +31,10 @@ import pandas as pd
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
-# ─── Path Setup ───────────────────────────────────────────────
-# Support both: `python src/api/app.py` and `gunicorn src.api.app:app`
-API_DIR  = os.path.dirname(os.path.abspath(__file__))   # src/api/
-SRC_DIR  = os.path.dirname(API_DIR)                      # src/
-ROOT_DIR = os.path.dirname(SRC_DIR)                      # project root
+
+API_DIR  = os.path.dirname(os.path.abspath(__file__))   
+SRC_DIR  = os.path.dirname(API_DIR)                      
+ROOT_DIR = os.path.dirname(SRC_DIR)                      
 sys.path.insert(0, SRC_DIR)
 
 from core.regions import REGION_NAMES, classify_region, get_region_center
@@ -45,9 +44,8 @@ from core.regions import REGION_NAMES, classify_region, get_region_center
 WEB_DIR = os.path.join(SRC_DIR, "web")
 app = Flask(__name__, static_folder=WEB_DIR, static_url_path="")
 
-# CORS — allow cross-origin requests from dev servers (Live Server, etc.)
-# In production (Docker), frontend is served by Flask on same origin so CORS
-# headers are harmless but unused. We allow common dev ports explicitly.
+
+
 CORS(app, resources={r"/*": {
     "origins": [
         "http://127.0.0.1:5500",   # VS Code Live Server (default)
@@ -111,13 +109,17 @@ def _load():
 
         _cache["loaded"] = True
         logger.info("✅ All resources loaded successfully.")
+        logger.info(f"   Features: {_cache['features']}")
+        logger.info(f"   Data rows: {len(_cache['df'])}")
+        if not _cache["df"].empty:
+            logger.info(f"   Magnitude range: {_cache['df']['magnitude'].min():.2f} – {_cache['df']['magnitude'].max():.2f}")
     except Exception as e:
         logger.error(f"❌ Resource loading failed: {e}")
         _cache["loaded"]  = False
         _cache["load_err"] = str(e)
 
 
-# Load on startup
+
 _load()
 
 
@@ -181,8 +183,40 @@ def predict():
         if model is None:
             return jsonify({"error": _cache.get("load_err", "Model not loaded")}), 503
 
-        # Build input row with defaults from training data medians
+        # Build input row — compute derived features from user inputs
         row = {}
+
+        # Pre-compute values needed for derived features
+        depth_val = float(data.get("depth", 10))
+        month_val = int(data.get("month", 6))
+        hour_val  = int(data.get("hour", 12))
+        dow_val   = int(data.get("dayofweek", 0))
+
+        # Get lat/lon from data or region center
+        if "latitude" in data and data["latitude"] is not None:
+            lat_val = float(data["latitude"])
+            lon_val = float(data.get("longitude", 78.9))
+        else:
+            center = get_region_center(data["region"])
+            lat_val = center[0]
+            lon_val = center[1]
+
+        # Derived feature lookup — features computed from user input
+        derived = {
+            "depth_log": float(np.log1p(depth_val)),
+            "is_shallow": 1.0 if depth_val <= 10 else 0.0,
+            "is_deep": 1.0 if depth_val >= 100 else 0.0,
+            "lat_lon_interaction": lat_val * lon_val / 1000.0,
+            "month_sin": float(np.sin(2 * np.pi * month_val / 12)),
+            "month_cos": float(np.cos(2 * np.pi * month_val / 12)),
+            "hour_sin":  float(np.sin(2 * np.pi * hour_val / 24)),
+            "hour_cos":  float(np.cos(2 * np.pi * hour_val / 24)),
+            "dow_sin":   float(np.sin(2 * np.pi * dow_val / 7)),
+            "dow_cos":   float(np.cos(2 * np.pi * dow_val / 7)),
+            "latitude":  lat_val,
+            "longitude": lon_val,
+        }
+
         for col in feature_cols:
             if col == "region":
                 region_name = data["region"]
@@ -192,23 +226,32 @@ def predict():
                                  f"Valid regions: {sorted(list(encoder.classes_))}"
                     }), 400
                 row[col] = int(encoder.transform([region_name])[0])
-            elif col in data:
+            elif col in derived:
+                row[col] = derived[col]
+            elif col in data and data[col] is not None:
                 row[col] = float(data[col])
-            elif col in ["latitude", "longitude"]:
-                center = get_region_center(data["region"])
-                row["latitude"]  = center[0]
-                row["longitude"] = center[1]
             else:
-                # Use training median as fallback
+                # Use training median as fallback for rolling/historical features
                 row[col] = float(df[col].median()) if (df is not None and col in df.columns) else 0.0
 
         input_df   = pd.DataFrame([row])[feature_cols]
         prediction = float(model.predict(input_df)[0])
 
+        # Clamp prediction to realistic range
+        prediction = max(0.5, min(prediction, 10.0))
+
+        # Confidence based on magnitude ranges
+        if prediction < 4.0:
+            confidence = "high"
+        elif prediction < 5.5:
+            confidence = "moderate"
+        else:
+            confidence = "high"
+
         return jsonify({
             "magnitude":  round(prediction, 2),
             "region":     data["region"],
-            "confidence": "high" if prediction < 6 else "moderate",
+            "confidence": confidence,
         })
 
     except Exception as e:
@@ -294,6 +337,30 @@ def analytics_anomaly():
         result["z_score"] = result["z_score"].round(2)
         result            = result.sort_values("z_score", ascending=False)
         return jsonify(result.head(50).to_dict(orient="records"))
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/analytics/magnitude_dist", methods=["GET"])
+def analytics_magnitude_dist():
+    """
+    Magnitude distribution histogram data for frontend charts.
+    Returns bin counts for magnitude ranges.
+    """
+    try:
+        df = _get("df")
+        if df is None or df.empty:
+            return jsonify([])
+
+        bins = [0, 2, 3, 4, 5, 6, 7, 10]
+        labels = ["<2", "2-3", "3-4", "4-5", "5-6", "6-7", "7+"]
+        df_copy = df.copy()
+        df_copy["mag_bin"] = pd.cut(df_copy["magnitude"], bins=bins, labels=labels)
+        counts = df_copy["mag_bin"].value_counts().sort_index()
+
+        result = [{"range": label, "count": int(counts.get(label, 0))} for label in labels]
+        return jsonify(result)
     except Exception as e:
         logger.error(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
