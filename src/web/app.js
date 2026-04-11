@@ -45,6 +45,17 @@ const REGION_COLORS = {
     "West": "#fb923c",
 };
 
+// Magnitude distribution bar colors
+const MAG_DIST_COLORS = {
+    "<2": "#22c55e",
+    "2-3": "#86efac",
+    "3-4": "#3b82f6",
+    "4-5": "#f59e0b",
+    "5-6": "#f97316",
+    "6-7": "#ef4444",
+    "7+": "#dc2626",
+};
+
 // Chart instance cache (for destroy/recreate)
 const charts = {};
 
@@ -75,15 +86,20 @@ async function apiFetch(path) {
 // ─── Dashboard ───────────────────────────────────────────────
 async function loadDashboard() {
     try {
-        const [regionData, metrics] = await Promise.all([
+        const [regionData, metrics, magDist] = await Promise.all([
             apiFetch("/analytics/region"),
             apiFetch("/model/metrics"),
+            apiFetch("/analytics/magnitude_dist").catch(() => []),
         ]);
 
         // Metric cards
         const totalQuakes = regionData.reduce((s, r) => s + r.count, 0);
-        const avgMag = (regionData.reduce((s,r) => s + r.avg_magnitude * r.count, 0) / totalQuakes).toFixed(2);
-        const maxMag = Math.max(...regionData.map(r => r.max_magnitude)).toFixed(1);
+        const avgMag = totalQuakes > 0
+            ? (regionData.reduce((s,r) => s + r.avg_magnitude * r.count, 0) / totalQuakes).toFixed(2)
+            : "—";
+        const maxMag = regionData.length > 0
+            ? Math.max(...regionData.map(r => r.max_magnitude)).toFixed(1)
+            : "—";
 
         document.getElementById("m-total").textContent = totalQuakes.toLocaleString();
         document.getElementById("m-avg-mag").textContent = avgMag;
@@ -120,6 +136,20 @@ async function loadDashboard() {
             }]
         });
 
+        // Magnitude distribution chart (if data available)
+        if (magDist && magDist.length > 0) {
+            renderChart("magDistChart", "bar", {
+                labels: magDist.map(d => d.range),
+                datasets: [{
+                    label: "Earthquake Count",
+                    data: magDist.map(d => d.count),
+                    backgroundColor: magDist.map(d => MAG_DIST_COLORS[d.range] || "#6b7280"),
+                    borderRadius: 4,
+                    borderSkipped: false,
+                }]
+            });
+        }
+
         // Region table
         const tbody = document.getElementById("region-table-body");
         tbody.innerHTML = regionData.map(r => `
@@ -138,8 +168,10 @@ async function loadDashboard() {
 }
 
 function renderChart(canvasId, type, data, extraOpts = {}) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return; // Skip if canvas doesn't exist
     if (charts[canvasId]) charts[canvasId].destroy();
-    const ctx = document.getElementById(canvasId).getContext("2d");
+    const ctx = canvas.getContext("2d");
     charts[canvasId] = new Chart(ctx, {
         type,
         data,
@@ -203,6 +235,8 @@ async function loadMapData(region = "") {
         mapState.markers.clearLayers();
 
         data.forEach(q => {
+            if (!q.latitude || !q.longitude) return; // Skip invalid coords
+
             let color = "#22c55e";
             if (q.magnitude >= 3) color = "#3b82f6";
             if (q.magnitude >= 4) color = "#f59e0b";
@@ -292,7 +326,7 @@ document.getElementById("predict-form").addEventListener("submit", async (e) => 
         } else {
             const mag = result.magnitude.toFixed(2);
             magEl.textContent = mag;
-            magEl.className = "result-value " + (mag < 4 ? "low" : mag < 5.5 ? "mid" : "high");
+            magEl.className = "result-value " + (mag < 3 ? "low" : mag < 4.5 ? "mid" : "high");
             regionEl.textContent = `Region: ${result.region}`;
             confEl.textContent = result.confidence;
             confEl.className = `result-confidence ${result.confidence}`;
