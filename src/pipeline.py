@@ -110,6 +110,16 @@ def load_and_preprocess(data_path: str) -> pd.DataFrame:
             logger.warning(f"[Phase 1] Column '{col}' missing — filling with 0.")
             df[col] = 0.0
 
+    # Validate magnitude range
+    mag_range = (df["magnitude"].min(), df["magnitude"].max())
+    logger.info(f"[Phase 1] Magnitude range: {mag_range[0]:.1f} – {mag_range[1]:.1f}")
+
+    # Drop rows with clearly invalid magnitudes (< 0 or > 10)
+    before = len(df)
+    df = df[(df["magnitude"] > 0) & (df["magnitude"] <= 10)].reset_index(drop=True)
+    if len(df) < before:
+        logger.info(f"[Phase 1] Dropped {before - len(df)} rows with invalid magnitudes")
+
     logger.info(
         f"[Phase 1] Loaded {len(df)} records, date range: "
         f"{df['origin_time'].min()} → {df['origin_time'].max()}"
@@ -146,13 +156,21 @@ def add_region_features(df: pd.DataFrame) -> pd.DataFrame:
 # ─── PHASE 1c: TEMPORAL FEATURES ─────────────────────────────
 
 def add_temporal_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Extract time-based features from origin_time."""
+    """Extract time-based features from origin_time, including cyclical encoding."""
     logger.info("[Phase 1] Engineering temporal features...")
     df["year"]      = df["origin_time"].dt.year
     df["month"]     = df["origin_time"].dt.month
     df["day"]       = df["origin_time"].dt.day
     df["hour"]      = df["origin_time"].dt.hour
     df["dayofweek"] = df["origin_time"].dt.dayofweek
+
+    # Cyclical encoding for periodic features
+    df["month_sin"] = np.sin(2 * np.pi * df["month"] / 12)
+    df["month_cos"] = np.cos(2 * np.pi * df["month"] / 12)
+    df["hour_sin"]  = np.sin(2 * np.pi * df["hour"] / 24)
+    df["hour_cos"]  = np.cos(2 * np.pi * df["hour"] / 24)
+    df["dow_sin"]   = np.sin(2 * np.pi * df["dayofweek"] / 7)
+    df["dow_cos"]   = np.cos(2 * np.pi * df["dayofweek"] / 7)
     return df
 
 
@@ -180,11 +198,26 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
 # ─── PHASE 1e: DERIVED FEATURES ──────────────────────────────
 
 def add_derived_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Compute energy release and inter-event time."""
+    """Compute non-leaking derived features."""
     logger.info("[Phase 1] Engineering derived features...")
 
     df["time_since_last"] = df["origin_time"].diff().dt.total_seconds().fillna(0)
-    df["energy_release"]  = 1.5 * df["magnitude"] + 4.8  # log10(E) proxy
+
+    # Depth-based seismic energy proxy (no magnitude leakage)
+    # Deeper earthquakes in subduction zones tend to release more energy
+    df["depth_log"] = np.log1p(df["depth"])
+
+    # Depth categories (shallow vs deep earthquakes behave differently)
+    df["is_shallow"] = (df["depth"] <= 10).astype(int)
+    df["is_deep"]    = (df["depth"] >= 100).astype(int)
+
+    # Latitude-longitude interaction (geospatial pattern)
+    df["lat_lon_interaction"] = df["latitude"] * df["longitude"] / 1000.0
+
+    # Magnitude standard deviation in rolling window (from shifted values)
+    mag_shifted = df["magnitude"].shift(1)
+    df["mag_std_7"] = mag_shifted.rolling(window=7, min_periods=1).std().fillna(0)
+
     return df
 
 
@@ -200,8 +233,10 @@ def split_and_save(df: pd.DataFrame) -> tuple:
     keep_cols = [
         "latitude", "longitude", "depth",
         "year", "month", "day", "hour", "dayofweek",
+        "month_sin", "month_cos", "hour_sin", "hour_cos", "dow_sin", "dow_cos",
         "mag_roll_7", "mag_roll_30", "depth_roll_7",
-        "time_since_last", "energy_release",
+        "time_since_last", "depth_log", "is_shallow", "is_deep",
+        "lat_lon_interaction", "mag_std_7",
         "region_eq_count", "region_avg_mag", "region",
         "magnitude",    # target
         "origin_time",  # metadata
@@ -230,6 +265,11 @@ def split_and_save(df: pd.DataFrame) -> tuple:
 
     logger.info(f"[Phase 2] Train: {len(train)} rows → {TRAIN_PATH}")
     logger.info(f"[Phase 2] Test:  {len(test)} rows → {TEST_PATH}")
+
+    # Log magnitude distribution in train/test
+    logger.info(f"[Phase 2] Train mag range: {train['magnitude'].min():.2f} – {train['magnitude'].max():.2f}")
+    logger.info(f"[Phase 2] Test mag range:  {test['magnitude'].min():.2f} – {test['magnitude'].max():.2f}")
+
     return train, test
 
 
@@ -260,17 +300,28 @@ def train_model(train: pd.DataFrame, test: pd.DataFrame):
     X_test  = test_enc[feature_cols].astype(float)
     y_test  = test_enc["magnitude"]
 
-    # Train XGBoost
+    logger.info(f"[Phase 3] Features ({len(feature_cols)}): {feature_cols}")
+    logger.info(f"[Phase 3] X_train shape: {X_train.shape}, y_train range: {y_train.min():.2f}–{y_train.max():.2f}")
+
+    # Train XGBoost with tuned hyperparameters (from RandomizedSearchCV)
     model = XGBRegressor(
-        n_estimators=200,
-        max_depth=6,
-        learning_rate=0.08,
-        subsample=0.8,
+        n_estimators=800,
+        max_depth=8,
+        learning_rate=0.03,
+        subsample=0.9,
         colsample_bytree=0.8,
+        min_child_weight=1,
+        gamma=0,
+        reg_alpha=0,
+        reg_lambda=1.0,
         random_state=42,
         verbosity=0,
     )
-    model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
+    model.fit(
+        X_train, y_train,
+        eval_set=[(X_test, y_test)],
+        verbose=False,
+    )
 
     # Evaluate
     preds = model.predict(X_test)
@@ -280,6 +331,10 @@ def train_model(train: pd.DataFrame, test: pd.DataFrame):
 
     metrics = {"rmse": round(rmse, 4), "mae": round(mae, 4), "r2": round(r2, 4)}
     logger.info(f"[Phase 3] Metrics → RMSE: {rmse:.4f} | MAE: {mae:.4f} | R²: {r2:.4f}")
+
+    # Prediction sanity check
+    pred_range = (preds.min(), preds.max())
+    logger.info(f"[Phase 3] Prediction range: {pred_range[0]:.2f} – {pred_range[1]:.2f}")
 
     # Feature importance (top 10)
     importances = dict(zip(feature_cols, model.feature_importances_))
